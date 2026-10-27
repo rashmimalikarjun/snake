@@ -60,7 +60,6 @@ const FONT = {
 export function drawText(ctx, text, px, py, cell, opts = {}) {
   // cell = size of one pixel-dot; each glyph is 5 wide x 7 tall dots
   const s = String(text).toUpperCase()
-  const gap = cell
   let cursorX = px
   ctx.fillStyle = opts.color || INK
   for (const ch of s) {

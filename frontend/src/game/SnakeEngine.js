@@ -36,6 +36,7 @@ export class SnakeEngine {
   }
 
   reset() {
+    this.stop() // cancel any in-flight RAF before wiping state
     const cy = Math.floor(ROWS / 2)
     this.snake = [
       { x: 6, y: cy },
@@ -50,6 +51,7 @@ export class SnakeEngine {
     this._acc = 0
     this._lastTs = null
     this._raf = null
+    this._runId = 0 // incremented on every start() to invalidate stale frames
     this._pendingGrow = 0
     this.startedAt = null
     this.spawnFood()
@@ -93,6 +95,7 @@ export class SnakeEngine {
   start() {
     if (this.state === 'dead') this.reset()
     this.state = 'running'
+    this._runId += 1 // invalidate any stale RAF frame from a previous run
     this.startedAt = this.startedAt ?? Date.now()
     this._lastTs = null
     this._acc = 0
@@ -123,15 +126,24 @@ export class SnakeEngine {
 
   stop() {
     this.state = 'idle'
+    this._runId += 1 // invalidate any in-flight frame
     if (this._raf) cancelAnimationFrame(this._raf)
     this._raf = null
   }
 
   loop() {
     if (this._raf) return
+    const runId = this._runId // tag frames with the current run
     const frame = (ts) => {
       this._raf = null
       if (this.state !== 'running') return
+      if (runId !== this._runId) {
+        // Stale frame from a previous run (e.g. stop()+start() raced an
+        // already-scheduled RAF). Drop it and start a fresh loop instead of
+        // silently killing the new run.
+        this.loop()
+        return
+      }
       if (this._lastTs == null) this._lastTs = ts
       let delta = ts - this._lastTs
       this._lastTs = ts

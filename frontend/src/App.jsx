@@ -55,9 +55,19 @@ export default function App() {
   const [lastGame, setLastGame] = useState(null)
   const [saveState, setSaveState] = useState({ saving: false, saved: false, failed: false })
 
+  // refs mirror the latest state so callbacks defined EARLY (e.g. onSelectKey,
+  // which is referenced by keyboard effects before activateMenuItem exists in
+  // source order) can call them at event time without ever touching an
+  // uninitialised const binding (temporal-dead-zone ReferenceError fix).
   const engineRef = useRef(null)
   const screenRef = useRef(screen)
   screenRef.current = screen
+  const menuIndexRef = useRef(menuIndex)
+  menuIndexRef.current = menuIndex
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const startGameRef = useRef(null)
+  const activateMenuItemRef = useRef(null)
 
   // keep sound module in sync
   useEffect(() => {
@@ -116,28 +126,16 @@ export default function App() {
     setScreen('menu')
   }, [])
 
-  const startGame = useCallback(
-    (fresh) => {
-      const engine = engineRef.current
-      unlockAudio()
-      if (fresh) {
-        engine.stop()
-        engine.reset()
-        engine.setMode(mode)
-      }
-      setScreen('game')
-      engine.start()
-    },
-    [mode]
-  )
-
+  // Defined BEFORE activateMenuItem (which it used to sit after) and routed
+  // through refs, so no const declared later in the component body is ever
+  // referenced from a hook that runs during an earlier render pass.
   const onSelectKey = useCallback(() => {
     unlockAudio()
     const s = screenRef.current
     if (s === 'game') {
       engineRef.current.togglePause()
     } else if (s === 'menu') {
-      activateMenuItem(menuIndex)
+      activateMenuItemRef.current?.(menuIndexRef.current)
     } else if (s === 'gameover') {
       goMenu()
     } else if (s === 'highscores' || s === 'history' || s === 'instructions') {
@@ -145,7 +143,23 @@ export default function App() {
     } else if (s === 'name') {
       // handled by its own OK button; Enter submits form anyway
     }
-  }, [menuIndex, activateMenuItem, goMenu])
+  }, [goMenu])
+
+  const startGame = useCallback(
+    (fresh) => {
+      const engine = engineRef.current
+      unlockAudio()
+      if (fresh) {
+        engine.stop()
+        engine.reset()
+        engine.setMode(modeRef.current)
+      }
+      setScreen('game')
+      engine.start()
+    },
+    []
+  )
+  startGameRef.current = startGame
 
   const activateMenuItem = useCallback(
     (i) => {
@@ -153,10 +167,10 @@ export default function App() {
       playMenuSelect()
       switch (item.id) {
         case 'snake':
-          startGame(false)
+          startGameRef.current?.(false)
           break
         case 'newgame':
-          startGame(true)
+          startGameRef.current?.(true)
           break
         case 'mode':
           setMode((m) => {
@@ -184,8 +198,9 @@ export default function App() {
           break
       }
     },
-    [startGame]
+    []
   )
+  activateMenuItemRef.current = activateMenuItem
 
   const handleDir = useCallback(
     (d) => {
@@ -203,15 +218,16 @@ export default function App() {
         })
         if (d === 'left' || d === 'right') {
           // left/right also toggles the current setting items
-          if (MENU_ITEMS[menuIndex].id === 'mode' || MENU_ITEMS[menuIndex].id === 'sound') {
-            activateMenuItem(menuIndex)
+          const cur = MENU_ITEMS[menuIndexRef.current]
+          if (cur.id === 'mode' || cur.id === 'sound') {
+            activateMenuItemRef.current?.(menuIndexRef.current)
           }
         }
       } else if (s === 'gameover') {
         goMenu()
       }
     },
-    [activateMenuItem, goMenu, menuIndex]
+    [goMenu]
   )
 
   // ---- keyboard ------------------------------------------------------------
