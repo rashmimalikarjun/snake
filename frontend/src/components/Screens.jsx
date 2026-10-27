@@ -170,7 +170,7 @@ export function NameScreen({ onDone }) {
             value={name}
             maxLength={20}
             autoFocus
-            onChange={(e) => setName(e.target.value.replace(/[^A-Za-z0-9 _.\-]/g, ''))}
+            onChange={(e) => setName(e.target.value.replace(/[^A-Za-z0-9 _.-]/g, ''))}
             aria-label="Player name"
           />
           <button type="submit" className="retro-btn">OK</button>
