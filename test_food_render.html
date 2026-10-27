@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Food Render Test</title>
+    <style>
+        body { margin: 20px; font-family: monospace; }
+        canvas { border: 2px solid #333; image-rendering: pixelated; }
+        .test-case { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Snake Xenzia - Food Rendering Test</h1>
+    
+    <div class="test-case">
+        <h2>Test 1: Current buggy rendering (food too large)</h2>
+        <canvas id="buggy" width="312" height="240"></canvas>
+    </div>
+    
+    <div class="test-case">
+        <h2>Test 2: Fixed rendering (correct size)</h2>
+        <canvas id="fixed" width="312" height="240"></canvas>
+    </div>
+
+    <script type="module">
+        import { COLS, ROWS, SnakeEngine } from './frontend/src/game/SnakeEngine.js'
+        
+        // Create a test engine instance
+        const engine = new SnakeEngine({ mode: 'classic', onDraw: () => {}, onEvent: () => {} })
+        engine.reset()
+        const snapshot = engine.snapshot()
+        
+        console.log('Game snapshot:', snapshot)
+        console.log('Food position:', snapshot.food)
+        console.log('Grid dimensions:', COLS, 'x', ROWS)
+        
+        // Draw on both canvases
+        function drawBuggy(canvasId) {
+            const canvas = document.getElementById(canvasId)
+            const ctx = canvas.getContext('2d')
+            
+            const W = canvas.width
+            const H = canvas.height
+            const topBarPx = Math.round(H * 0.14)
+            const fieldH = H - topBarPx
+            
+            const cellW = Math.floor(W / COLS)
+            const cellH = Math.floor(fieldH / ROWS)
+            const cell = Math.max(2, Math.min(cellW, cellH))
+            const offX = Math.floor((W - cell * COLS) / 2)
+            const offY = topBarPx + Math.floor((fieldH - cell * ROWS) / 2)
+            
+            // Background
+            ctx.fillStyle = '#9dbb78'
+            ctx.fillRect(0, 0, W, H)
+            
+            // Border
+            ctx.strokeStyle = '#1c2b16'
+            ctx.lineWidth = 2
+            ctx.strokeRect(offX - 2, offY - 2, cell * COLS + 4, cell * ROWS + 4)
+            
+            // Draw snake segments
+            ctx.fillStyle = '#1c2b16'
+            snapshot.snake.forEach((seg, i) => {
+                const sx = offX + seg.x * cell
+                const sy = offY + seg.y * cell
+                if (i === 0) {
+                    ctx.fillRect(sx, sy, cell, cell)
+                } else {
+                    const inset = Math.max(1, Math.floor(cell * 0.12))
+                    ctx.fillRect(sx + inset, sy + inset, cell - 2 * inset, cell - 2 * inset)
+                }
+            })
+            
+            // Draw food - BUGGY VERSION (current code)
+            if (snapshot.food) {
+                const fx = offX + snapshot.food.x * cell
+                const fy = offY + snapshot.food.y * cell
+                const p = cell
+                
+                // This creates overlapping blocks that look like a huge cluster!
+                ctx.fillRect(fx + p, fy, p, p)
+                ctx.fillRect(fx, fy + p, p, p)
+                ctx.fillRect(fx + 3 * p, fy + p, p, p)
+                ctx.fillRect(fx, fy + 2 * p, p, p)
+                ctx.fillRect(fx + 3 * p, fy + 2 * p, p, p)
+                ctx.fillRect(fx + p, fy + 3 * p, p, p)
+                ctx.fillRect(fx + 2 * p, fy + 3 * p, p, p)
+                ctx.fillRect(fx + 2 * p, fy - p > offY ? fy - p : fy, p, p > 2 ? 2 : p)
+                
+                console.log(`BUGGY food at (${fx}, ${fy}), cell=${cell}px, drawing 8 rects`)
+            }
+        }
+        
+        function drawFixed(canvasId) {
+            const canvas = document.getElementById(canvasId)
+            const ctx = canvas.getContext('2d')
+            
+            const W = canvas.width
+            const H = canvas.height
+            const topBarPx = Math.round(H * 0.14)
+            const fieldH = H - topBarPx
+            
+            const cellW = Math.floor(W / COLS)
+            const cellH = Math.floor(fieldH / ROWS)
+            const cell = Math.max(2, Math.min(cellW, cellH))
+            const offX = Math.floor((W - cell * COLS) / 2)
+            const offY = topBarPx + Math.floor((fieldH - cell * ROWS) / 2)
+            
+            // Background
+            ctx.fillStyle = '#9dbb78'
+            ctx.fillRect(0, 0, W, H)
+            
+            // Border
+            ctx.strokeStyle = '#1c2b16'
+            ctx.lineWidth = 2
+            ctx.strokeRect(offX - 2, offY - 2, cell * COLS + 4, cell * ROWS + 4)
+            
+            // Draw snake segments
+            ctx.fillStyle = '#1c2b16'
+            snapshot.snake.forEach((seg, i) => {
+                const sx = offX + seg.x * cell
+                const sy = offY + seg.y * cell
+                if (i === 0) {
+                    ctx.fillRect(sx, sy, cell, cell)
+                } else {
+                    const inset = Math.max(1, Math.floor(cell * 0.12))
+                    ctx.fillRect(sx + inset, sy + inset, cell - 2 * inset, cell - 2 * inset)
+                }
+            })
+            
+            // Draw food - FIXED VERSION (simple centered block)
+            if (snapshot.food) {
+                const fx = offX + snapshot.food.x * cell
+                const fy = offY + snapshot.food.y * cell
+                
+                // Simple: just fill the grid cell with a small centered block
+                const blockSize = Math.max(2, Math.floor(cell * 0.6))
+                const offset = Math.floor((cell - blockSize) / 2)
+                
+                ctx.fillRect(fx + offset, fy + offset, blockSize, blockSize)
+                
+                console.log(`FIXED food at (${fx}, ${fy}), cell=${cell}px, block=${blockSize}px centered`)
+            }
+        }
+        
+        drawBuggy('buggy')
+        drawFixed('fixed')
+        
+        // Log expected vs actual
+        console.log('\n=== VERIFICATION ===')
+        console.log('Expected: Food should be ~60% of cell size, centered in grid cell')
+        console.log('Buggy version draws 8 separate rects covering ~4x cell area')
+        console.log('Fixed version draws 1 rect at proper size')
+    </script>
+</body>
+</html>
