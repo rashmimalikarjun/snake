@@ -125,20 +125,16 @@ export function drawFrame(canvas, snapshot, highScore) {
 
   ctx.fillStyle = INK
 
-  // --- food: little "fruit" blob (donut shape like Xenzia's rabbit/fruit)
+  // --- food: small centered block within grid cell (authentic Nokia style)
   if (snapshot.food && snapshot.state !== 'dead') {
     const fx = offX + snapshot.food.x * cell
     const fy = offY + snapshot.food.y * cell
-    const p = cell // one pixel block unit
-    // 4x4 ring with center hole + stem
-    ctx.fillRect(fx + p, fy, p, p)
-    ctx.fillRect(fx, fy + p, p, p)
-    ctx.fillRect(fx + 3 * p, fy + p, p, p)
-    ctx.fillRect(fx, fy + 2 * p, p, p)
-    ctx.fillRect(fx + 3 * p, fy + 2 * p, p, p)
-    ctx.fillRect(fx + p, fy + 3 * p, p, p)
-    ctx.fillRect(fx + 2 * p, fy + 3 * p, p, p)
-    ctx.fillRect(fx + 2 * p, fy - p > offY ? fy - p : fy, p, p > 2 ? 2 : p)
+    
+    // Draw a simple square that's ~60% of the cell size, centered in the grid
+    const blockSize = Math.max(2, Math.floor(cell * 0.6))
+    const offset = Math.floor((cell - blockSize) / 2)
+    
+    ctx.fillRect(fx + offset, fy + offset, blockSize, blockSize)
   }
 
   // --- snake: chunky segments with a small gap between them
